@@ -13,9 +13,12 @@ Optional flags:
     --threshold   Cosine similarity threshold (default: 0.60)
     --top-n       Maximum pairs to display (default: 20)
     --save        Save results to examples/example_output.json
+    --evaluate    Run Task 3 evaluation on the labelled test dataset
 
-Example:
+Examples:
     python main.py --threshold 0.55 --top-n 10 --save
+    python main.py --evaluate
+    python main.py --threshold 0.60 --top-n 5 --save --evaluate
 """
 
 import argparse
@@ -40,7 +43,7 @@ from src.contradiction import detect_contradictions, format_results
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="AI-Based Product Review Contradiction Detection - Task 2 Prototype"
+        description="AI-Based Product Review Contradiction Detection - Task 2 & 3 Prototype"
     )
     parser.add_argument(
         "--threshold",
@@ -59,6 +62,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Save results to examples/example_output.json",
     )
+    parser.add_argument(
+        "--evaluate",
+        action="store_true",
+        help="Run Task 3 evaluation on the manually labelled test dataset",
+    )
     return parser.parse_args()
 
 
@@ -67,8 +75,16 @@ def main() -> None:
 
     print("\n" + "=" * 70)
     print("  AI-BASED PRODUCT REVIEW CONTRADICTION DETECTION")
-    print("  Task 2 - Model Integration Prototype")
+    print("  Tasks 2 & 3 - Model Integration + Intelligent Feature")
     print("=" * 70 + "\n")
+
+    # ── Task 3 Evaluation (optional, runs before main pipeline) ─────────────
+    if args.evaluate:
+        from src.evaluate import run_evaluation
+        run_evaluation(threshold=args.threshold)
+        print()  # blank line before main pipeline
+
+    # ── Main Pipeline ────────────────────────────────────────────────────────
 
     # Step 1: Load
     df_raw = load_reviews()
@@ -76,7 +92,7 @@ def main() -> None:
     # Step 2: Preprocess
     df = preprocess(df_raw)
 
-    # Step 3: Detect contradictions
+    # Step 3: Detect contradictions (Task 3: with confidence + explanation)
     pairs = detect_contradictions(
         df,
         similarity_threshold=args.threshold,

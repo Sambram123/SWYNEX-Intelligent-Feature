@@ -453,3 +453,242 @@ The following real examples were detected from the Amazon Electronics dataset:
   > *"I found Bose's latest wireless headphones to be a fairly serious disappointment, which was surprising and frustrating after having bought 5 or 6 pairs of headphones over the years, along with speakers and a Wave Radio... They are very big and jut from my ears in a way that looks comical... they don't pair properly with Windows 10..."*
 - **Cosine Similarity**: `0.7184`
 - **Result**: `Contradiction Detected` (Conflicting assessments on fit, usability, and satisfaction)
+
+---
+
+# Task 3 – Intelligent Contradiction Explanation & Ranking
+
+## 1. Feature Overview
+
+Task 3 adds an **Intelligent Contradiction Explanation & Ranking** layer on top of the Task 2 model integration prototype.
+
+For every detected review pair, the system now:
+
+1. **Validates** both reviews for completeness and correctness before processing.
+2. **Calculates a contradiction confidence score** (a prototype heuristic, not a calibrated probability).
+3. **Ranks** all detected contradiction pairs from highest to lowest confidence.
+4. **Generates a natural-language explanation** for every pair — contradictions and non-contradictions alike.
+5. **Handles edge-cases gracefully** without crashing the application.
+
+> **Important disclaimer:** This system detects *potential* contradictions based on **semantic similarity** (from the MiniLM embeddings) and **sentiment polarity** (from star ratings). It does **not** verify factual accuracy, understand nuance, or perform causal reasoning.
+
+---
+
+## 2. New Files Added (Task 3)
+
+| File | Description |
+|---|---|
+| [`src/explainer.py`](src/explainer.py) | Confidence scoring, explanation generation, ranking, and input validation |
+| [`src/evaluate.py`](src/evaluate.py) | 25-item labelled evaluation dataset, metrics computation, and example display |
+
+### Existing Files Updated
+
+| File | Change |
+|---|---|
+| [`src/contradiction.py`](src/contradiction.py) | Integrates explainer enrichment and ranking; adds input validation per pair |
+| [`main.py`](main.py) | Adds `--evaluate` CLI flag to run the Task 3 evaluation |
+
+---
+
+## 3. Confidence Score Methodology
+
+The confidence score is a **prototype heuristic** defined as:
+
+```
+confidence = cosine_similarity   (when all contradiction criteria are met)
+             0.0                  (otherwise)
+```
+
+Criteria that must ALL be satisfied to yield a non-zero confidence score:
+
+| Criterion | Requirement |
+|---|---|
+| Sentiment polarity | Strictly Positive vs Negative (or vice versa) |
+| Neutral sentiment | Neither review may have a Neutral (3-star) sentiment |
+| Cosine similarity | Must be ≥ configured threshold (default 0.60) |
+
+### Confidence Tier Labels
+
+| Range | Label |
+|---|---|
+| 0.90 – 1.00 | Very High |
+| 0.75 – 0.89 | High |
+| 0.60 – 0.74 | Moderate |
+| < 0.60 | Low (not reported as contradiction) |
+
+**⚠️ Note:** The confidence score is NOT a statistically calibrated probability. It is a relative ordering indicator — a higher score means the two reviews are more semantically related while expressing opposite sentiments.
+
+---
+
+## 4. Ranking Logic
+
+Detected pairs are ranked by:
+
+1. **Confidence (descending)** — primary sort key (equals cosine similarity for valid contradictions)
+2. **Similarity score (descending)** — secondary tiebreaker
+
+The `--top-n` flag (default: 20) controls how many ranked pairs are returned.
+
+---
+
+## 5. Explanation Logic
+
+A simple rule-based explanation is generated for every pair based on the outcome verdict:
+
+| Verdict | Explanation Template |
+|---|---|
+| `contradiction` (Very High ≥ 0.90) | *"Both reviews have very high semantic similarity (X%) and express directly opposite sentiments..."* |
+| `contradiction` (High ≥ 0.75) | *"Both reviews appear to discuss the same product aspect (similarity X%) but reach opposing conclusions..."* |
+| `contradiction` (Moderate ≥ 0.60) | *"The reviews share moderate semantic overlap (X%) and express opposite sentiments..."* |
+| `same_sentiment` | *"Both reviews express the same sentiment (X), so no contradiction was detected..."* |
+| `neutral_involved` | *"Review N has a Neutral sentiment (3-star rating), which provides insufficient evidence..."* |
+| `low_similarity` | *"The reviews are not semantically similar enough (similarity X%) to indicate they are discussing the same aspect..."* |
+| `unknown_sentiment` | *"One or both reviews have an unrecognised sentiment label..."* |
+
+---
+
+## 6. Error Handling
+
+The system handles all the following cases gracefully without crashing:
+
+| Case | Handling |
+|---|---|
+| Missing review text (`None`) | Validation fails; pair skipped with reason |
+| Empty / too-short review text | Validation fails; pair skipped with reason |
+| Missing rating (`None`) | Validation fails; pair skipped with reason |
+| Invalid rating (non-numeric) | Validation fails; pair skipped with reason |
+| Rating outside 1–5 range | Validation fails; pair skipped with reason |
+| Duplicate reviews (identical text) | Validation fails; pair skipped |
+| Fewer than 2 reviews for a product | Product group skipped during scanning |
+| Neutral sentiment (3-star) | `neutral_involved` verdict; confidence = 0 |
+| Low semantic similarity (< threshold) | `low_similarity` verdict; confidence = 0 |
+| Same-polarity reviews | `same_sentiment` verdict; confidence = 0 |
+| Unknown product ASIN | `unknown_sentiment` or skipped during grouping |
+| Model loading failure | Error caught and reported; evaluation exits gracefully |
+
+---
+
+## 7. Running the Evaluation
+
+```bash
+# Run evaluation only
+python main.py --evaluate
+
+# Run evaluation + main pipeline with custom threshold
+python main.py --evaluate --threshold 0.60 --top-n 5 --save
+```
+
+---
+
+## 8. Evaluation Dataset & Methodology
+
+The evaluation uses a **manually labelled dataset of 25 review pairs** covering:
+
+- True contradictions (Positive vs Negative, semantically similar) — 12 pairs
+- True non-contradictions: same sentiment — 4 pairs
+- True non-contradictions: low similarity / different topics — 3 pairs
+- True non-contradictions: neutral sentiment involved — 3 pairs
+- Edge cases: duplicates, very short reviews, neutral vs non-neutral — 3 pairs
+
+**Labels:**
+- `1` = contradiction
+- `0` = non-contradiction
+
+**Metrics computed:**
+- Accuracy, Precision, Recall, F1-Score
+
+---
+
+## 9. Evaluation Results (threshold = 0.60)
+
+```
+Total pairs evaluated : 25
+True Positives (TP)   : 5
+True Negatives (TN)   : 13
+False Positives (FP)  : 0
+False Negatives (FN)  : 7
+Accuracy              : 0.7200  (72.0%)
+Precision             : 1.0000  (100.0%)
+Recall                : 0.4167  (41.7%)
+F1-Score              : 0.5882  (58.8%)
+```
+
+### Interpretation
+
+| Metric | Value | Meaning |
+|---|---|---|
+| **Precision 100%** | 1.0 | Every pair flagged as a contradiction **was genuinely** a contradiction — zero false alarms |
+| **Recall 41.7%** | 0.42 | The system detects ~5 of every 12 true contradiction pairs |
+| **Accuracy 72%** | 0.72 | Overall correct on 18 of 25 pairs |
+| **F1-Score 58.8%** | 0.59 | Balanced score reflects high precision but limited recall |
+
+**Why recall is limited:** Many written contradiction pairs in the evaluation dataset use different vocabulary to express opposite opinions (e.g., "premium quality" vs "cheap and flimsy"). The MiniLM model measures *semantic similarity* of surface text, not factual disagreement, so pairs with low lexical overlap score below the threshold even if human-labelled as contradictions.
+
+---
+
+## 10. Selected Example Predictions (5 Cases)
+
+### Case 1: True Contradiction — Battery Life
+- **Review 1 (Positive, ★5):** *"The battery easily lasts two full days even with heavy use. Outstanding performance."*
+- **Review 2 (Negative, ★1):** *"The battery barely lasts five hours. Absolutely terrible battery life."*
+- **Similarity:** 0.64 | **Confidence:** 64% (Moderate) | **Predicted:** Contradiction ✓
+- **Explanation:** *"The reviews share moderate semantic overlap (64%) and express opposite sentiments (Positive vs Negative). This is a moderate-confidence potential contradiction."*
+
+### Case 2: True Non-Contradiction — Same Positive Sentiment
+- **Review 1 (Positive, ★5):** *"Excellent product. Great battery life and comfortable design."*
+- **Review 2 (Positive, ★5):** *"Really happy with this purchase. Battery is fantastic and it feels great to wear."*
+- **Similarity:** 0.76 | **Confidence:** N/A | **Predicted:** Non-Contradiction ✓
+- **Explanation:** *"Both reviews express the same sentiment (Positive), so no contradiction was detected despite their similarity (76%)."*
+
+### Case 3: Same Sentiment — Both Negative
+- **Review 1 (Negative, ★1):** *"Terrible product. Battery died in two days and sound is awful."*
+- **Review 2 (Negative, ★2):** *"Very disappointing. Battery fails quickly and the audio quality is poor."*
+- **Similarity:** 0.60 | **Confidence:** N/A | **Predicted:** Non-Contradiction ✓
+- **Explanation:** *"Both reviews express the same sentiment (Negative), so no contradiction was detected despite their similarity (60%)."*
+
+### Case 4: Low Similarity — Different Topics
+- **Review 1 (Positive, ★5):** *"The carry case is very nice and compact."*
+- **Review 2 (Negative, ★1):** *"Disappointing sound. Muddy bass and no highs at all."*
+- **Similarity:** -0.07 | **Confidence:** N/A | **Predicted:** Non-Contradiction ✓
+- **Explanation:** *"The reviews are not semantically similar enough (similarity -7%) to indicate they are discussing the same product aspect, so no contradiction was detected."*
+
+### Case 5: Neutral / Insufficient Evidence
+- **Review 1 (Neutral, ★3):** *"It is okay. Nothing special but gets the job done."*
+- **Review 2 (Negative, ★1):** *"Battery life is terrible. Barely lasts an hour."*
+- **Sentiment:** Neutral vs Negative | **Confidence:** N/A | **Predicted:** Non-Contradiction ✓
+- **Explanation:** *"Review 1 has a Neutral sentiment (3-star rating), which provides insufficient evidence to declare a contradiction."*
+
+---
+
+## 11. Limitations
+
+The following limitations are acknowledged for this prototype:
+
+| Limitation | Description |
+|---|---|
+| **Vocabulary dependency** | The system relies on surface-level textual similarity. Paraphrased contradictions (e.g., "premium" vs "cheap") may score below the threshold even when they are genuine contradictions. |
+| **Sentiment from rating only** | Sentiment is derived from the star rating, not the review text. A 5-star review with mixed language is still labelled Positive. |
+| **No factual verification** | The system cannot verify whether a claim (e.g., "battery lasts 2 days") is true or false. It only detects disagreement in expressed sentiment. |
+| **No aspect extraction** | The system does not identify *which specific aspect* (battery, sound, comfort) is being contradicted. |
+| **Neutral excluded** | 3-star (Neutral) reviews are excluded from contradiction detection as insufficient evidence. |
+| **Recall vs Precision trade-off** | Setting a high similarity threshold increases precision but reduces recall. Lowering it finds more contradictions but risks false positives. |
+| **English-only** | The model works on English text only. |
+| **Not a fact-checker** | This system is NOT a misinformation or fake-review detector. |
+
+---
+
+## 12. Git Commands to Commit Task 3
+
+```bash
+# Verify ignored files (dataset and model cache should NOT be staged)
+git status
+
+# Stage all Task 3 changes
+git add src/explainer.py src/evaluate.py src/contradiction.py main.py README.md examples/example_output.json
+
+# Commit
+git commit -m "feat: implement Task 3 intelligent contradiction explanation and ranking"
+
+# Push
+git push origin main
+```

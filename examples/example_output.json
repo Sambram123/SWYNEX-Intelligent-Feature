@@ -7,7 +7,10 @@
     "sentiment_1": "Positive",
     "sentiment_2": "Negative",
     "similarity_score": 0.7657,
-    "contradiction_detected": true
+    "contradiction_detected": true,
+    "confidence": 0.7657,
+    "confidence_label": "High",
+    "explanation": "Both reviews appear to discuss the same product aspect (similarity 77%) but reach opposing conclusions (Positive vs Negative). This is a high-confidence potential contradiction."
   },
   {
     "product_title": "EBL 2800mAh Ni-MH AA Rechargeable Batteries (8 Pack) and Rechargeable AA AAA Battery Charger",
@@ -17,7 +20,10 @@
     "sentiment_1": "Positive",
     "sentiment_2": "Negative",
     "similarity_score": 0.7522,
-    "contradiction_detected": true
+    "contradiction_detected": true,
+    "confidence": 0.7522,
+    "confidence_label": "High",
+    "explanation": "Both reviews appear to discuss the same product aspect (similarity 75%) but reach opposing conclusions (Positive vs Negative). This is a high-confidence potential contradiction."
   },
   {
     "product_title": "EBL 2800mAh Ni-MH AA Rechargeable Batteries (8 Pack) and Rechargeable AA AAA Battery Charger",
@@ -27,7 +33,10 @@
     "sentiment_1": "Positive",
     "sentiment_2": "Negative",
     "similarity_score": 0.7288,
-    "contradiction_detected": true
+    "contradiction_detected": true,
+    "confidence": 0.7288,
+    "confidence_label": "Moderate",
+    "explanation": "The reviews share moderate semantic overlap (73%) and express opposite sentiments (Positive vs Negative). This is a moderate-confidence potential contradiction."
   },
   {
     "product_title": "Bose SoundSport Free, True Wireless Earbuds, (Sweatproof Bluetooth Headphones for Workouts and Sports), Midnight Blue / Citron",
@@ -37,7 +46,10 @@
     "sentiment_1": "Positive",
     "sentiment_2": "Negative",
     "similarity_score": 0.7184,
-    "contradiction_detected": true
+    "contradiction_detected": true,
+    "confidence": 0.7184,
+    "confidence_label": "Moderate",
+    "explanation": "The reviews share moderate semantic overlap (72%) and express opposite sentiments (Positive vs Negative). This is a moderate-confidence potential contradiction."
   },
   {
     "product_title": "EBL 2800mAh Ni-MH AA Rechargeable Batteries (8 Pack) and Rechargeable AA AAA Battery Charger",
@@ -47,6 +59,9 @@
     "sentiment_1": "Positive",
     "sentiment_2": "Negative",
     "similarity_score": 0.718,
-    "contradiction_detected": true
+    "contradiction_detected": true,
+    "confidence": 0.718,
+    "confidence_label": "Moderate",
+    "explanation": "The reviews share moderate semantic overlap (72%) and express opposite sentiments (Positive vs Negative). This is a moderate-confidence potential contradiction."
   }
 ]
